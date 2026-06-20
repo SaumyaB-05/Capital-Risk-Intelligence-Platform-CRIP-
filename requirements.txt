@@ -1,0 +1,6 @@
+# Core pandas numpy 
+# UI streamlit plotly 
+# Forecasting prophet 
+# AI reporting google-generativeai 
+# PDF export fpdf2 
+# Agent framework agno
