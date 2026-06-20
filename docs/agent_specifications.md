@@ -1,44 +1,26 @@
-# Capital & Risk Intelligence Platform (CRIP)
+# CRIP Agent Specifications
 
-# Agent Specifications
+## Agent 1: Data Governance Agent
 
----
+### Purpose
 
-# Agent 1: Data Governance Agent
+Validate and clean uploaded portfolio data.
 
-## Purpose
+### Inputs
 
-Validate uploaded dataset and ensure data quality before any analysis is performed.
+Entire dataset
 
-## Inputs
+### Key Functions
 
-* Policy_ID
-* Date
-* Product_Type
-* Region
-* Policy_Status
-* Customer_Segment
-* Distribution_Channel
-* Written_Premium
-* Claim_Amount
-* Fraud_Flag
-* Anomaly_Flag
-* Insurance_Risk
-* Market_Risk
-* Credit_Risk
-* Operational_Risk
+* Missing value checks
+* Duplicate checks
+* Data type validation
+* Category validation
+* Risk score validation
+* Outlier detection
+* Data quality scoring
 
-## Calculations
-
-* Missing Value Check
-* Duplicate Policy Check
-* Data Type Validation
-* Category Validation
-* Risk Score Range Validation
-* Outlier Detection
-* Data Quality Score
-
-## Outputs
+### Outputs
 
 * Clean Dataset
 * Data Quality Score
@@ -48,74 +30,49 @@ Validate uploaded dataset and ensure data quality before any analysis is perform
 
 ---
 
-# Agent 2: Pricing & Profitability Agent
+## Agent 2: Pricing & Profitability Agent
 
-## Purpose
-
-Evaluate profitability and premium adequacy across products and segments.
-
-## Inputs
+### Inputs
 
 * Written_Premium
 * Claim_Amount
 * Total_Expense
+* Claim_Count
 * Product_Type
 * Customer_Segment
 * Distribution_Channel
 * Region
 * Policy_Status
-* Claim_Count
 * Sum_Insured
 
-## Calculations
+### Calculations
 
-### Loss Ratio
+* Loss Ratio
+* Expense Ratio
+* Combined Ratio
+* Underwriting Profit
+* Claim Severity
+* Premium Adequacy
 
-Claim_Amount / Written_Premium
+### Outputs
 
-### Expense Ratio
-
-Total_Expense / Written_Premium
-
-### Combined Ratio
-
-Loss Ratio + Expense Ratio
-
-### Underwriting Profit
-
-Written_Premium - Claim_Amount - Total_Expense
-
-### Claim Severity
-
-Claim_Amount / Claim_Count
-
-### Premium Adequacy
-
-Written_Premium / Sum_Insured
-
-## Outputs
-
+* Product Profitability Ranking
 * Loss Ratio Analysis
 * Combined Ratio Analysis
 * Underwriting Profit Analysis
-* Product Profitability Ranking
-* Premium Adequacy Analysis
 * Pricing Insights
 
 ---
 
-# Agent 3: Risk Intelligence Agent
+## Agent 3: Risk Intelligence Agent
 
-## Purpose
-
-Assess portfolio risk and identify high-risk products, regions and segments.
-
-## Inputs
+### Inputs
 
 * Insurance_Risk
 * Market_Risk
 * Credit_Risk
 * Operational_Risk
+* Catastrophe_Risk
 * Claim_Count
 * Claim_Amount
 * Fraud_Flag
@@ -124,56 +81,32 @@ Assess portfolio risk and identify high-risk products, regions and segments.
 * Region
 * Customer_Segment
 * Sum_Insured
+* Policy_Tenure_Months
 * Renewal_Count
 
-## Calculations
-
-### Composite Risk Score
-
-Weighted average of:
-
-* Insurance Risk
-* Market Risk
-* Credit Risk
-* Operational Risk
-
-### Risk Category
-
-* Low
-* Medium
-* High
-* Critical
-
-### Exposure at Risk
-
-Sum_Insured × Composite Risk Score
-
-### Risk Concentration
-
-Region-wise and Product-wise Risk
-
-### Fraud Rate
-
-Fraud Policies / Total Policies
-
-## Outputs
+### Calculations
 
 * Composite Risk Score
-* Risk Categories
+* Risk Category
+* Exposure At Risk
+* Risk Concentration
+* Fraud Rate
+* High-Risk Policy Count
+
+### Outputs
+
+* Composite Risk Score
 * Risk Heatmap
+* Risk Ranking
 * Exposure Analysis
 * Fraud Analysis
-* Risk Ranking Table
+* Risk Category Distribution
 
 ---
 
-# Agent 4: Time Series Intelligence Agent
+## Agent 4: Time Series Intelligence Agent
 
-## Purpose
-
-Forecast future claims and premiums using historical trends.
-
-## Inputs
+### Inputs
 
 * Date
 * Written_Premium
@@ -183,35 +116,17 @@ Forecast future claims and premiums using historical trends.
 * Season_Flag
 * Anomaly_Flag
 
-## Calculations
+### Calculations
 
-### Monthly Aggregation
+* Monthly Aggregation
+* Claim Frequency
+* Claim Severity
+* Claims Forecast
+* Premium Forecast
+* Year-over-Year Growth
+* Seasonal Trend Analysis
 
-Claims and Premiums by Month
-
-### Claim Frequency
-
-Claim_Count per Month
-
-### Claim Severity
-
-Claim_Amount per Claim
-
-### Claims Forecast
-
-Prophet Forecast
-
-### Premium Forecast
-
-Prophet Forecast
-
-### Trend Analysis
-
-* Growth Trends
-* Seasonal Trends
-* Year-over-Year Changes
-
-## Outputs
+### Outputs
 
 * Claims Forecast Chart
 * Premium Forecast Chart
@@ -221,13 +136,9 @@ Prophet Forecast
 
 ---
 
-# Agent 5: Stress Testing Agent
+## Agent 5: Stress Testing Agent
 
-## Purpose
-
-Evaluate portfolio resilience under adverse scenarios.
-
-## Inputs
+### Inputs
 
 * Claim_Amount
 * Written_Premium
@@ -237,86 +148,79 @@ Evaluate portfolio resilience under adverse scenarios.
 * Market_Risk
 * Credit_Risk
 * Operational_Risk
+* Catastrophe_Risk
 * Product_Type
 * Region
 
-## Scenarios
+### Scenarios
 
-### Scenario 1
+#### Scenario 1
 
 Claims +20%
 
-### Scenario 2
+#### Scenario 2
 
 Claims +40%
 
-### Scenario 3
+#### Scenario 3
 
 Market Risk +25%
 
-### Scenario 4
+#### Scenario 4
 
 Combined Shock
 
-Claims +40% and Market Risk +25%
+Claims +40%
++
+Market Risk +25%
 
-## Calculations
+#### Scenario 5
 
-* Shocked Claims
-* Post-Shock Profit
+Catastrophic Event
+
+Flood / Cyclone / Earthquake Scenario
+
+### Outputs
+
+* Scenario Results
 * Capital Impact
-* Solvency Ratio
-* Capital Shortfall
-* Risk Movement
-
-## Outputs
-
-* Scenario Analysis Table
-* Capital Impact Analysis
 * Solvency Analysis
+* Capital Shortfall
 * Product Vulnerability Analysis
-* Stress Testing Dashboard
 
 ---
 
-# Agent 6: Executive Reporting Agent
+## Agent 6: Executive Reporting Agent
 
-## Purpose
+### Inputs
 
-Generate management-level insights and reports.
+* Data Governance Results
+* Pricing Results
+* Risk Results
+* Forecasting Results
+* Stress Testing Results
 
-## Inputs
+### Functions
 
-* Data Governance Outputs
-* Pricing Agent Outputs
-* Risk Agent Outputs
-* Time Series Agent Outputs
-* Stress Testing Outputs
-
-## Calculations
-
-* Portfolio Summary
 * KPI Consolidation
-* Renewal Rate
-* Lapse Rate
-* Portfolio Growth Rate
-* Top Risk Product
-* Top Loss Product
+* Portfolio Summary
+* Growth Analysis
+* Renewal Analysis
+* Risk Commentary
+* Recommendation Generation
 
-## AI Features
-
-Gemini API generates:
+### Gemini Tasks
 
 * Executive Summary
-* Risk Commentary
+* Risk Narrative
 * Strategic Recommendations
 
-## Outputs
+### Outputs
 
 * Executive Summary
-* Management Recommendations
 * KPI Dashboard
 * Risk Report
+* Management Recommendations
 * Downloadable PDF Report
 
 ---
@@ -327,7 +231,11 @@ Upload Dataset
 
 ↓
 
-Data Governance Agent
+Data Governance Agent (Mandatory)
+
+↓
+
+Select Analysis Mode
 
 ↓
 
@@ -352,4 +260,3 @@ Executive Reporting Agent
 ↓
 
 Dashboard & PDF Report
-
