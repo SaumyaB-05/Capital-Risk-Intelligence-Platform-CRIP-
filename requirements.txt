@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 pandas 
 numpy 
 streamlit 
@@ -5,3 +6,11 @@ plotly
 prophet 
 google-generativeai 
 fpdf2
+=======
+# Core pandas numpy 
+# UI streamlit plotly 
+# Forecasting prophet 
+# AI reporting google-generativeai 
+# PDF export fpdf2 
+# Agent framework agno
+>>>>>>> 1bb2da92f55e5c3abe44117685067a78827de526
