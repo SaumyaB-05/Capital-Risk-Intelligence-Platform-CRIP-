@@ -1,0 +1,7 @@
+pandas 
+numpy 
+streamlit 
+plotly 
+prophet 
+google-generativeai 
+fpdf2
