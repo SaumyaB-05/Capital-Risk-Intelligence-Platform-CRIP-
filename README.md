@@ -40,6 +40,8 @@ The pipeline consists of the following key components:
    ```bash
    streamlit run orchestrator.py
    ```
+4. Open terminal in main branch,
+   type "python -m streamlit run orchestrator.py"
 
 ## Repository Structure
 
@@ -65,3 +67,9 @@ Saumya Bajaj
 Varad Srivastava
 
 ## Note: The project is made under the guidance of Sri Sai Sathya Institute of Actuaries (SSSIA) as a part of project in AI AIP Multi Industry Internship.
+
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
