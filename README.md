@@ -61,10 +61,10 @@ The pipeline consists of the following key components:
 - Plotly
 
 ## Contributers:
-Aarush Rajan Ranjan
-Deekshikha
-Saumya Bajaj
-Varad Srivastava
+# Aarush Rajan Ranjan
+# Deekshikha
+# Saumya Bajaj
+# Varad Srivastava
 
 ## Note: The project is made under the guidance of Sri Sai Sathya Institute of Actuaries (SSSIA) as a part of project in AI AIP Multi Industry Internship.
 
