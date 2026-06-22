@@ -1,15 +1,53 @@
-# Capital & Risk Intelligence Platform (CRIP)
+# CRIP: Capital Risk Intelligence Pipeline
 
-AI-Powered Multi-Agent Insurance Risk Analytics Platform
+CRIP is a modular, AI-driven pipeline for evaluating, validating, and analyzing insurance datasets. It employs multiple specialized agents to automate the end-to-end process from data cleaning to advanced risk modeling and regulatory reporting.
 
-## Agents
+## Overview
 
-1. Data Governance Agent
-2. Pricing & Profitability Agent
-3. Risk Intelligence Agent
-4. Time Series Intelligence Agent
-5. Stress Testing Agent
-6. Executive Reporting Agent
+The pipeline consists of the following key components:
+
+### 1. Data Validation Agent
+- Identifies and cleans noisy or redundant data.
+- Standardizes missing values.
+- Detects outliers and anomalies.
+
+### 2. Pricing & Profitability Agent
+- Calculates fundamental insurance metrics: Loss Ratio, Expense Ratio, Combined Ratio, and Underwriting Profit.
+- Segments profitability across different dimensions (Product Types, Customer Segments).
+- Provides automated pricing insights.
+
+### 3. Risk Intelligence & ML Agent
+- Evaluates multi-dimensional risk profiles (Insurance, Credit, Market, Operational, and CAT risk).
+- Trains an XGBoost Regressor to predict expected claim amounts.
+- Runs Monte Carlo Simulations for portfolio stress testing and Value at Risk (VaR) calculations.
+
+### 4. Data Governance Agent
+- Generates comprehensive automated reports for regulatory compliance.
+- Assures data integrity and validation reporting.
+
+### 5. Orchestrator
+- A unified Streamlit dashboard (`orchestrator.py`) that integrates all the agents into a cohesive user interface.
+- Provides interactive data exploration, fraud risk scoring, and report generation.
+
+## Setup & Installation
+
+1. Clone the repository or navigate to the project directory.
+2. Ensure you have the required dependencies installed:
+   ```bash
+   pip install pandas numpy matplotlib seaborn xgboost scikit-learn streamlit openpyxl
+   ```
+3. Run the orchestrator dashboard:
+   ```bash
+   streamlit run orchestrator.py
+   ```
+
+## Repository Structure
+
+- `orchestrator.py`: Main Streamlit application.
+- `agents/`: Directory containing individual agent scripts (`data_governance.py`, `pricing.py`, `risk_intelligence.py`, etc.).
+- `*.ipynb`: Jupyter notebooks (`data_validation_agent.ipynb`, `pricing_agent.ipynb`, `risk_intelligence_agent.ipynb`) for interactive analysis.
+- `Dataset/`: Directory for input datasets.
+- `reports/`: Directory containing generated validation and governance reports.
 
 ## Tech Stack
 
@@ -19,3 +57,11 @@ AI-Powered Multi-Agent Insurance Risk Analytics Platform
 - Prophet
 - Gemini API
 - Plotly
+
+## Contributers:
+Aarush Rajan Ranjan
+Deekshikha
+Saumya Bajaj
+Varad Srivastava
+
+## Note: The project is made under the guidance of Sri Sai Sathya Institute of Actuaries (SSSIA) as a part of project in AI AIP Multi Industry Internship.
