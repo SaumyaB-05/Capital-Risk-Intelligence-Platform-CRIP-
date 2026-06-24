@@ -155,19 +155,23 @@ if uploaded_file is not None:
             portfolio_metrics  = risk_results["portfolio_metrics"]
 
             os.makedirs("reports", exist_ok=True)
-            df_risk.to_csv("reports/risk_intelligence_dataset.csv", index=False)
-
-            summary_path = "reports/risk_summary_report.xlsx"
-            with pd.ExcelWriter(summary_path) as writer:
-                pd.DataFrame([portfolio_metrics]).T.reset_index()\
-                  .rename(columns={0: "Value", "index": "Metric"})\
-                  .to_excel(writer, sheet_name="Portfolio Metrics", index=False)
-                if "Product_Type" in df_risk.columns:
-                    risk_cols = [c for c in ["Insurance_Risk", "Market_Risk", "Credit_Risk",
-                                             "Operational_Risk", "Hazard_Score"] if c in df_risk.columns]
-                    df_risk.groupby("Product_Type")[risk_cols].mean().reset_index()\
-                           .to_excel(writer, sheet_name="Risks by Product", index=False)
-                feature_importance.to_excel(writer, sheet_name="ML Feature Importance", index=False)
+            
+            try:
+                df_risk.to_csv("reports/risk_intelligence_dataset.csv", index=False)
+                
+                summary_path = "reports/risk_summary_report.xlsx"
+                with pd.ExcelWriter(summary_path) as writer:
+                    pd.DataFrame([portfolio_metrics]).T.reset_index()\
+                      .rename(columns={0: "Value", "index": "Metric"})\
+                      .to_excel(writer, sheet_name="Portfolio Metrics", index=False)
+                    if "Product_Type" in df_risk.columns:
+                        risk_cols = [c for c in ["Insurance_Risk", "Market_Risk", "Credit_Risk",
+                                                 "Operational_Risk", "Hazard_Score"] if c in df_risk.columns]
+                        df_risk.groupby("Product_Type")[risk_cols].mean().reset_index()\
+                               .to_excel(writer, sheet_name="Risks by Product", index=False)
+                    feature_importance.to_excel(writer, sheet_name="ML Feature Importance", index=False)
+            except PermissionError:
+                st.error("⚠️ Could not save reports. Please close `risk_intelligence_dataset.csv` or `risk_summary_report.xlsx` if they are open in Excel.")
                 if "Model Governance & Validation Standards" in df_risk.columns:
                     df_risk["Model Governance & Validation Standards"].value_counts()\
                            .reset_index().rename(columns={"index": "Status",
@@ -524,13 +528,31 @@ with chat_container:
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
                 st.markdown(message["content"])
+
+        # Chat Suggestions
+        st.markdown("<small>💡 **Suggested Prompts:**</small>", unsafe_allow_html=True)
+        sug_cols = st.columns(3)
+        suggestions = [
+            "What is our overall Capital Adequacy?",
+            "Which product has the highest risk?",
+            "Explain our Expected Shortfall."
+        ]
         
+        # We'll use a session state variable to handle button clicks gracefully, 
+        # but Streamlit buttons directly setting the prompt also works if handled before the main if block.
+        clicked_suggestion = None
+        for i, sug in enumerate(suggestions):
+            if sug_cols[i].button(sug, key=f"sug_{i}", use_container_width=True):
+                clicked_suggestion = sug
+
         # Chat Input
-        with st.form("chat_form", clear_on_submit=True):
-            prompt = st.text_input("Ask a question about the reports...", label_visibility="collapsed", placeholder="Type your question here...")
-            submitted = st.form_submit_button("Send")
+        prompt = st.chat_input("Type your question here...")
+        
+        # Override prompt if a suggestion was clicked
+        if clicked_suggestion:
+            prompt = clicked_suggestion
             
-        if submitted and prompt:
+        if prompt:
             # Append User Message
             st.session_state.messages.append({"role": "user", "content": prompt})
             with st.chat_message("user"):

@@ -28,6 +28,7 @@ The pipeline consists of the following key components:
 ### 5. Chief Risk Officer Assistant (Chatbot)
 - Integrated Executive Assistant chatbot to interactively query and analyze all generated reports.
 - Answers questions dynamically based on the exact results from the other models (VaR, forecasting, anomalies).
+- **Anti-Hallucination Measures:** Uses strict Retrieval-Augmented Generation (RAG) context injection, boundary guardrails, and low temperature settings (0.3) to ensure deterministic, strictly factual responses based *only* on the loaded dataset.
 
 ### 6. Orchestrator
 - A unified Streamlit dashboard (`orchestrator.py`) that integrates all the agents into a cohesive user interface.
@@ -53,7 +54,7 @@ The pipeline consists of the following key components:
 
 - `orchestrator.py`: Main Streamlit application.
 - `agents/`: Directory containing individual agent scripts (`data_governance.py`, `pricing.py`, `risk_intelligence.py`, etc.).
-- `*.ipynb`: Jupyter notebooks (`data_validation_agent.ipynb`, `pricing_agent.ipynb`, `risk_intelligence_agent.ipynb`) for interactive analysis.
+- `notebooks/*.ipynb`: Jupyter notebooks (`data_validation_agent.ipynb`, `pricing_agent.ipynb`, `risk_intelligence_agent.ipynb`, `04_Forecasting.ipynb`, `05_Stress_Testing.ipynb`) for interactive analysis and deeper dive into the mathematical formulations.
 - `Dataset/`: Directory for input datasets.
 - `reports/`: Directory containing generated validation and governance reports.
 
@@ -65,6 +66,7 @@ The pipeline consists of the following key components:
 - Prophet (Time Series Forecasting)
 - XGBoost & Scikit-learn (Machine Learning)
 - Plotly (Interactive Data Visualizations)
+- Jupyter Notebooks (Interactive Analysis)
 
 ## Contributers:
 - Aarush Rajan Ranjan

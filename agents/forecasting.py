@@ -23,6 +23,10 @@ PREMIUM_COLS = ["Written_Premium", "Premium", "written_premium"]
 CLAIM_COLS   = ["Claim_Amount", "claim_amount", "Claims"]
 COUNT_COLS   = ["Claim_Count", "claim_count", "Num_Claims"]
 PRODUCT_COLS = ["Product_Type", "product_type", "Product"]
+INFLATION_COLS = ["Inflation_Rate", "inflation_rate", "Inflation"]
+SEGMENT_COLS   = ["Customer_Segment", "customer_segment", "Segment"]
+CHANNEL_COLS   = ["Distribution_Channel", "distribution_channel", "Channel"]
+ML_CLAIM_COLS  = ["Expected_Claim_Amount_ML", "expected_claim_amount_ml"]
 
 PRODUCT_WEIGHTS = config.FORECASTING['PRODUCT_WEIGHTS']
 
@@ -56,11 +60,19 @@ def _prepare_df(df_pricing):
     claim_col = _find_col(df, CLAIM_COLS)
     count_col = _find_col(df, COUNT_COLS)
     prod_col  = _find_col(df, PRODUCT_COLS)
+    inf_col   = _find_col(df, INFLATION_COLS)
+    seg_col   = _find_col(df, SEGMENT_COLS)
+    chan_col  = _find_col(df, CHANNEL_COLS)
+    ml_col    = _find_col(df, ML_CLAIM_COLS)
 
-    df["_Premium"] = df[prem_col].fillna(0)  if prem_col  else 0.0
-    df["_Claims"]  = df[claim_col].fillna(0) if claim_col else 0.0
-    df["_Count"]   = df[count_col].fillna(0) if count_col else 1.0
-    df["_Product"] = df[prod_col]             if prod_col  else "Unknown"
+    df["_Premium"]   = df[prem_col].fillna(0)  if prem_col  else 0.0
+    df["_Claims"]    = df[claim_col].fillna(0) if claim_col else 0.0
+    df["_Count"]     = df[count_col].fillna(0) if count_col else 1.0
+    df["_Product"]   = df[prod_col]             if prod_col  else "Unknown"
+    df["_Inflation"] = df[inf_col].fillna(0)    if inf_col   else 0.0
+    df["_Segment"]   = df[seg_col]              if seg_col   else "Unknown"
+    df["_Channel"]   = df[chan_col]             if chan_col  else "Unknown"
+    df["_ML_Claim"]  = df[ml_col].fillna(0)     if ml_col    else 0.0
 
     return df
 
@@ -75,6 +87,8 @@ def _aggregate_monthly(df):
             Claim_Amount   =("_Claims",  "sum"),
             Claim_Count    =("_Count",   "sum"),
             Policy_Count   =("_Premium", "count"),
+            Inflation_Rate =("_Inflation", "mean"),
+            ML_Expected_Claims=("_ML_Claim", "sum"),
         )
         .reset_index()
         .rename(columns={"_Month": "Month"})
@@ -144,8 +158,19 @@ def _prophet_forecast(monthly, col, periods):
     try:
         from prophet import Prophet
         m = Prophet(**config.FORECASTING['PROPHET_PARAMS'])
+        
+        has_inflation = "Inflation_Rate" in monthly.columns and monthly["Inflation_Rate"].sum() != 0
+        if has_inflation:
+            m.add_regressor('Inflation_Rate')
+            df_ts['Inflation_Rate'] = monthly['Inflation_Rate']
+            
         m.fit(df_ts)
         future   = m.make_future_dataframe(periods=periods, freq="MS")
+        
+        if has_inflation:
+            last_inflation = df_ts['Inflation_Rate'].iloc[-1]
+            future['Inflation_Rate'] = last_inflation
+            
         forecast = m.predict(future)
         return forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]]
 
@@ -216,21 +241,32 @@ def _seasonal_analysis(monthly):
 
 def _product_breakdown(df, monthly):
     """Loss ratio and claim exposure by product type."""
-    prod_col = _find_col(df, PRODUCT_COLS)
-    if not prod_col:
-        return pd.DataFrame()
-
-    prem_col  = _find_col(df, PREMIUM_COLS)
-    claim_col = _find_col(df, CLAIM_COLS)
-    if not prem_col or not claim_col:
-        return pd.DataFrame()
-
-    gb = df.groupby(prod_col).agg(
-        Total_Premium=( prem_col,  "sum"),
-        Total_Claims =(claim_col, "sum"),
+    gb = df.groupby("_Product").agg(
+        Total_Premium=("_Premium", "sum"),
+        Total_Claims=("_Claims", "sum"),
     ).reset_index()
     gb["Loss_Ratio"] = (gb["Total_Claims"] / gb["Total_Premium"].replace(0, np.nan) * 100).round(2)
-    gb.rename(columns={prod_col: "Product"}, inplace=True)
+    gb.rename(columns={"_Product": "Product"}, inplace=True)
+    return gb.sort_values("Total_Claims", ascending=False).reset_index(drop=True)
+
+def _segment_breakdown(df):
+    """Loss ratio and claim exposure by customer segment."""
+    gb = df.groupby("_Segment").agg(
+        Total_Premium=("_Premium", "sum"),
+        Total_Claims=("_Claims", "sum"),
+    ).reset_index()
+    gb["Loss_Ratio"] = (gb["Total_Claims"] / gb["Total_Premium"].replace(0, np.nan) * 100).round(2)
+    gb.rename(columns={"_Segment": "Customer_Segment"}, inplace=True)
+    return gb.sort_values("Total_Claims", ascending=False).reset_index(drop=True)
+
+def _channel_breakdown(df):
+    """Loss ratio and claim exposure by distribution channel."""
+    gb = df.groupby("_Channel").agg(
+        Total_Premium=("_Premium", "sum"),
+        Total_Claims=("_Claims", "sum"),
+    ).reset_index()
+    gb["Loss_Ratio"] = (gb["Total_Claims"] / gb["Total_Premium"].replace(0, np.nan) * 100).round(2)
+    gb.rename(columns={"_Channel": "Distribution_Channel"}, inplace=True)
     return gb.sort_values("Total_Claims", ascending=False).reset_index(drop=True)
 
 
@@ -253,6 +289,8 @@ def run_forecasting_pipeline(df_pricing, forecast_periods=12):
         yoy_df            - year-over-year growth DataFrame
         seasonal_df       - seasonal index by calendar month
         product_df        - product-level breakdown
+        segment_df        - segment-level breakdown
+        channel_df        - channel-level breakdown
         kpis              - dict of summary KPIs
         forecast_periods  - int
     """
@@ -271,6 +309,8 @@ def run_forecasting_pipeline(df_pricing, forecast_periods=12):
             "yoy_df":           pd.DataFrame(),
             "seasonal_df":      pd.DataFrame(),
             "product_df":       pd.DataFrame(),
+            "segment_df":       pd.DataFrame(),
+            "channel_df":       pd.DataFrame(),
             "kpis":             {},
             "forecast_periods": forecast_periods,
         }
@@ -279,9 +319,11 @@ def run_forecasting_pipeline(df_pricing, forecast_periods=12):
     premium_fc = _prophet_forecast(monthly, "Written_Premium", forecast_periods)
     freq_df    = _claim_frequency(monthly)
     sev_df     = _claim_severity(monthly)
-    yoy_df     = _yoy_growth(monthly)
+    yoy_df      = _yoy_growth(monthly)
     seasonal_df = _seasonal_analysis(monthly)
     product_df  = _product_breakdown(df, monthly)
+    segment_df  = _segment_breakdown(df)
+    channel_df  = _channel_breakdown(df)
 
     # Next-month forecast values
     last_hist   = monthly["Month"].max()
@@ -305,6 +347,7 @@ def run_forecasting_pipeline(df_pricing, forecast_periods=12):
         "Next_Month_Premium_Fc":   round(next_premium, 2),
         "Premium_YoY":             latest_yoy.get("Premium_YoY", None),
         "Claims_YoY":              latest_yoy.get("Claims_YoY",  None),
+        "Total_ML_Expected_Claims": round(float(monthly["ML_Expected_Claims"].sum()), 2) if "ML_Expected_Claims" in monthly else 0.0,
         "Data_Months":             len(monthly),
         "Forecast_Periods":        forecast_periods,
     }
@@ -318,6 +361,8 @@ def run_forecasting_pipeline(df_pricing, forecast_periods=12):
         "yoy_df":           yoy_df,
         "seasonal_df":      seasonal_df,
         "product_df":       product_df,
+        "segment_df":       segment_df,
+        "channel_df":       channel_df,
         "kpis":             kpis,
         "forecast_periods": forecast_periods,
     }
