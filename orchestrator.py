@@ -495,10 +495,10 @@ if uploaded_file is not None:
         dashboard_context = {
             "Cleaned Rows": len(df_clean),
             "Anomalies Flagged": len(gov_results.get("anomalies", [])),
-            "Overall Combined Ratio": f"{pricing_summary['combined_ratio'] * 100:.1f}%",
-            "Loss Making Products Count": len(pricing_summary['loss_making_products']),
-            "High Risk Claims Detected": risk_kpis["high_risk_claims"],
-            "Value at Risk (99%)": f"₹{risk_kpis['var_99']:.0f}",
+            "Overall Combined Ratio": f"{(df_pricing['Combined_Ratio'].mean()) * 100:.1f}%" if "Combined_Ratio" in df_pricing.columns else "N/A",
+            "Loss Making Products Count": len(df_pricing[df_pricing["Combined_Ratio"] > 1.0]) if "Combined_Ratio" in df_pricing.columns else 0,
+            "High Risk Claims Detected": len(df_risk[df_risk["Hazard_Score"] > 0.7]) if "Hazard_Score" in df_risk.columns else 0,
+            "Value at Risk (99%)": f"₹{portfolio_metrics.get('VaR_99', 0):.0f}",
         }
         if fkpis:
             dashboard_context["Next Month Claims Forecast"] = f"₹{fkpis.get('Next_Month_Claims_Fc', 0):.0f}"
