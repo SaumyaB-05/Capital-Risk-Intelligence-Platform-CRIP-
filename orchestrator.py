@@ -3,10 +3,11 @@ import pandas as pd
 import time
 import os
 
-from agents.data_governance  import run_governance_pipeline
-from agents.pricing          import run_pricing_pipeline
+from agents.data_governance   import run_governance_pipeline
+from agents.pricing           import run_pricing_pipeline
 from agents.risk_intelligence import run_risk_pipeline
-from agents.stress_testing   import run_stress_pipeline   # ← Agent 5 added
+from agents.forecasting       import run_forecasting_pipeline   # ← Agent 4
+from agents.stress_testing    import run_stress_pipeline        # ← Agent 5
 
 st.set_page_config(
     page_title="CRIP Unified Orchestrator",
@@ -15,34 +16,41 @@ st.set_page_config(
 )
 
 st.title("CRIP: Comprehensive Risk Intelligence Platform")
-st.markdown("Upload a raw insurance dataset to automatically orchestrate the AI agents.")
+st.markdown("Upload a raw insurance dataset to automatically orchestrate all AI agents.")
 
-# ── Scenario selector (shown before run) ──────────────────────────────────────
-SCENARIO_LABELS = {
-    "s1": "S1 — Claims +20% (Moderate)",
-    "s2": "S2 — Claims +40% (Severe)",
-    "s3": "S3 — Market Risk +25%",
-    "s4": "S4 — Combined Shock (Claims +40% & Market +25%)",
-    "s5": "S5 — Catastrophic Event (Flood / Cyclone / Earthquake)",
-}
+# ── Sidebar settings ──────────────────────────────────────────────────────────
 with st.sidebar:
+    st.header("📈 Forecasting Settings")
+    forecast_periods = st.slider("Forecast horizon (months)", 3, 24, 12)
+
+    st.divider()
     st.header("⚡ Stress Testing Settings")
+    SCENARIO_LABELS = {
+        "s1": "S1 — Claims +20% (Moderate)",
+        "s2": "S2 — Claims +40% (Severe)",
+        "s3": "S3 — Market Risk +25%",
+        "s4": "S4 — Combined Shock",
+        "s5": "S5 — Catastrophic Event",
+    }
     selected_scenario = st.selectbox(
-        "Stress scenario to run",
+        "Stress scenario",
         options=list(SCENARIO_LABELS.keys()),
         format_func=lambda x: SCENARIO_LABELS[x],
-        index=3,  # default: s4
+        index=3,
     )
 
-uploaded_file = st.file_uploader("Upload Raw Dataset (.csv or .xlsx)", type=["csv", "xlsx", "xls"])
+# ── File upload ───────────────────────────────────────────────────────────────
+uploaded_file = st.file_uploader(
+    "Upload Raw Dataset (.csv or .xlsx)", type=["csv", "xlsx", "xls"]
+)
 
 if uploaded_file is not None:
-    if uploaded_file.name.endswith('.csv'):
+    if uploaded_file.name.endswith(".csv"):
         df_raw = pd.read_csv(uploaded_file)
     else:
         df_raw = pd.read_excel(uploaded_file)
 
-    st.success(f"Dataset '{uploaded_file.name}' loaded. Found {len(df_raw)} rows.")
+    st.success(f"Dataset '{uploaded_file.name}' loaded — {len(df_raw):,} rows.")
 
     if st.button("🚀 Run All Agents", type="primary"):
         st.divider()
@@ -57,12 +65,12 @@ if uploaded_file is not None:
             df_clean    = gov_results["df_clean"]
             pb1.progress(100)
             time.sleep(0.5)
-        st.success(f"✅ Data Governance complete! Cleaned dataset has {len(df_clean)} rows.")
+        st.success(f"✅ Data Governance complete — {len(df_clean):,} clean rows.")
 
         # ── Agent 2: Pricing & Profitability ──────────────────────────────────
         st.subheader("📈 Agent 2: Pricing & Profitability Running...")
         pb2 = st.progress(0)
-        with st.spinner("Calculating Loss Ratios, Expense Ratios, and Underwriting Profit..."):
+        with st.spinner("Calculating Loss Ratios, Expense Ratios, Underwriting Profit..."):
             time.sleep(1)
             pb2.progress(50)
             pricing_results = run_pricing_pipeline(df_clean)
@@ -78,8 +86,8 @@ if uploaded_file is not None:
         with st.spinner("Calculating Risk Scores, Training XGBoost, running Monte Carlo..."):
             time.sleep(1)
             pb3.progress(50)
-            risk_results     = run_risk_pipeline(df_pricing)
-            df_risk          = risk_results["df_risk"]
+            risk_results       = run_risk_pipeline(df_pricing)
+            df_risk            = risk_results["df_risk"]
             feature_importance = risk_results["feature_importance"]
             portfolio_metrics  = risk_results["portfolio_metrics"]
 
@@ -88,23 +96,42 @@ if uploaded_file is not None:
 
             summary_path = "reports/risk_summary_report.xlsx"
             with pd.ExcelWriter(summary_path) as writer:
-                metrics_df = pd.DataFrame([portfolio_metrics]).T.reset_index()
-                metrics_df.columns = ["Metric", "Value"]
-                metrics_df.to_excel(writer, sheet_name="Portfolio Metrics", index=False)
+                pd.DataFrame([portfolio_metrics]).T.reset_index()\
+                  .rename(columns={0: "Value", "index": "Metric"})\
+                  .to_excel(writer, sheet_name="Portfolio Metrics", index=False)
                 if "Product_Type" in df_risk.columns:
-                    risk_cols = [c for c in ["Insurance_Risk","Market_Risk","Credit_Risk",
-                                             "Operational_Risk","Hazard_Score"] if c in df_risk.columns]
-                    risk_by_product = df_risk.groupby("Product_Type")[risk_cols].mean().reset_index()
-                    risk_by_product.to_excel(writer, sheet_name="Risks by Product", index=False)
+                    risk_cols = [c for c in ["Insurance_Risk", "Market_Risk", "Credit_Risk",
+                                             "Operational_Risk", "Hazard_Score"] if c in df_risk.columns]
+                    df_risk.groupby("Product_Type")[risk_cols].mean().reset_index()\
+                           .to_excel(writer, sheet_name="Risks by Product", index=False)
                 feature_importance.to_excel(writer, sheet_name="ML Feature Importance", index=False)
                 if "Model Governance & Validation Standards" in df_risk.columns:
-                    gov_summary = df_risk["Model Governance & Validation Standards"].value_counts().reset_index()
-                    gov_summary.columns = ["Status", "Count"]
-                    gov_summary.to_excel(writer, sheet_name="Model Governance", index=False)
-
+                    df_risk["Model Governance & Validation Standards"].value_counts()\
+                           .reset_index().rename(columns={"index": "Status",
+                                                          "Model Governance & Validation Standards": "Count"})\
+                           .to_excel(writer, sheet_name="Model Governance", index=False)
             pb3.progress(100)
             time.sleep(0.5)
         st.success("✅ Risk Intelligence & ML complete!")
+
+        # ── Agent 4: Forecasting ──────────────────────────────────────────────
+        st.subheader("📊 Agent 4: Time Series Forecasting Running...")
+        pb4 = st.progress(0)
+        with st.spinner(f"Forecasting claims & premiums for next {forecast_periods} months..."):
+            time.sleep(1)
+            pb4.progress(40)
+            forecast_results = run_forecasting_pipeline(df_pricing, forecast_periods=forecast_periods)
+            pb4.progress(100)
+            time.sleep(0.5)
+        fkpis = forecast_results["kpis"]
+        if fkpis:
+            st.success(
+                f"✅ Forecasting complete — "
+                f"Next month claims forecast: ₹{fkpis.get('Next_Month_Claims_Fc', 0):,.0f} | "
+                f"Premium forecast: ₹{fkpis.get('Next_Month_Premium_Fc', 0):,.0f}"
+            )
+        else:
+            st.warning("⚠️ Forecasting complete — insufficient date range for full forecast.")
 
         # ── Agent 5: Stress Testing ───────────────────────────────────────────
         st.subheader("⚡ Agent 5: Stress Testing Running...")
@@ -115,21 +142,21 @@ if uploaded_file is not None:
             stress_results = run_stress_pipeline(df_risk, scenario_id=selected_scenario)
             pb5.progress(100)
             time.sleep(0.5)
-
         sol = stress_results["solvency_ratio"]
         if stress_results["is_solvent"]:
-            st.success(f"✅ Stress Testing complete! Solvency ratio: {sol:.1f}% — Capital adequate.")
+            st.success(f"✅ Stress Testing complete — Solvency ratio: {sol:.1f}% — Capital adequate.")
         else:
-            st.error(f"⚠️ Stress Testing complete! Solvency ratio: {sol:.1f}% — Capital shortfall detected!")
+            st.error(f"⚠️ Stress Testing complete — Solvency ratio: {sol:.1f}% — Capital shortfall!")
 
         st.divider()
 
         # ── Results tabs ──────────────────────────────────────────────────────
         st.header("📊 Final Agent Reports")
-        tab1, tab2, tab3, tab5 = st.tabs([
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
             "🛡️ Data Governance",
             "📈 Pricing & Profitability",
             "🔮 Risk Intelligence & ML",
+            "📊 Time Series Forecast",
             "⚡ Stress Testing",
         ])
 
@@ -137,8 +164,8 @@ if uploaded_file is not None:
         with tab1:
             st.subheader("Data Cleaning Summary")
             c1, c2, c3 = st.columns(3)
-            c1.metric("Original Rows",    gov_results["summary"]["total_rows"])
-            c2.metric("Cleaned Rows",     len(df_clean))
+            c1.metric("Original Rows",     gov_results["summary"]["total_rows"])
+            c2.metric("Cleaned Rows",      len(df_clean))
             c3.metric("Anomalies Flagged", len(gov_results["anomalies"]))
             st.write("Missing Values Found Before Cleaning:")
             if not gov_results["missing_df"].empty:
@@ -152,26 +179,27 @@ if uploaded_file is not None:
         with tab2:
             st.subheader("Financial KPIs")
             pc1, pc2, pc3, pc4 = st.columns(4)
-            pc1.metric("Total Premium",    f"₹{kpis['Total_Premium']:,.0f}")
-            pc2.metric("Total Claims",     f"₹{kpis['Total_Claims']:,.0f}")
-            pc3.metric("Total Expenses",   f"₹{kpis['Total_Expenses']:,.0f}")
-            profit_color = "normal" if kpis['Underwriting_Profit'] > 0 else "inverse"
+            pc1.metric("Total Premium",   f"₹{kpis['Total_Premium']:,.0f}")
+            pc2.metric("Total Claims",    f"₹{kpis['Total_Claims']:,.0f}")
+            pc3.metric("Total Expenses",  f"₹{kpis['Total_Expenses']:,.0f}")
+            dc = "normal" if kpis["Underwriting_Profit"] > 0 else "inverse"
             pc4.metric("Underwriting Profit", f"₹{kpis['Underwriting_Profit']:,.0f}",
-                       delta=f"₹{kpis['Underwriting_Profit']:,.0f}", delta_color=profit_color)
+                       delta=f"₹{kpis['Underwriting_Profit']:,.0f}", delta_color=dc)
 
             st.write("Profitability Classification Distribution:")
-            tier_summary = df_pricing.groupby("Profitability_Tier").size().reset_index(name="Count")
-            st.dataframe(tier_summary, use_container_width=True)
+            st.dataframe(df_pricing.groupby("Profitability_Tier").size()
+                         .reset_index(name="Count"), use_container_width=True)
 
             if "Product_Type" in df_pricing.columns:
                 st.subheader("📊 Loss Ratio by Product")
-                st.bar_chart(df_pricing.groupby("Product_Type")["Loss_Ratio"].mean().sort_values(ascending=False))
+                st.bar_chart(df_pricing.groupby("Product_Type")["Loss_Ratio"]
+                             .mean().sort_values(ascending=False))
                 st.subheader("💰 Profit by Product")
-                st.bar_chart(df_pricing.groupby("Product_Type")["Underwriting_Profit"].sum().sort_values(ascending=False))
+                st.bar_chart(df_pricing.groupby("Product_Type")["Underwriting_Profit"]
+                             .sum().sort_values(ascending=False))
 
             st.subheader("🤖 AI Pricing Insights")
-            ratio_table = df_pricing.groupby("Product_Type")["Combined_Ratio"].mean().reset_index()
-            for _, row in ratio_table.iterrows():
+            for _, row in df_pricing.groupby("Product_Type")["Combined_Ratio"].mean().reset_index().iterrows():
                 product, ratio = row["Product_Type"], row["Combined_Ratio"]
                 if ratio > 1:
                     st.error(f"🔴 **{product}**: Combined Ratio {ratio:.2f} → Underpriced. Immediate rate action required.")
@@ -180,7 +208,7 @@ if uploaded_file is not None:
                 else:
                     st.warning(f"🟡 **{product}**: Combined Ratio {ratio:.2f} → Monitor Pricing.")
 
-            st.subheader("Detailed Pricing Dataset Preview")
+            st.subheader("Pricing Dataset Preview")
             st.dataframe(df_pricing.head(50))
 
         # ── Tab 3: Risk Intelligence ──────────────────────────────────────────
@@ -193,22 +221,113 @@ if uploaded_file is not None:
             rc4.metric("Avg Operational Risk", f"{df_risk['Operational_Risk'].mean():.1f}/10")
             rc5.metric("Avg CAT Risk",         f"{df_risk['Hazard_Score'].mean():.1f}/10")
 
-            st.subheader("🔮 XGBoost Predictive Pricing")
-            st.write("Feature Importance for predicting Claim Amount:")
-            st.bar_chart(feature_importance.set_index('Feature')['Importance'])
+            st.subheader("🔮 XGBoost Feature Importance")
+            st.bar_chart(feature_importance.set_index("Feature")["Importance"])
 
             st.subheader("🏛️ Capital Adequacy & Monte Carlo (VaR)")
             mc1, mc2, mc3, mc4 = st.columns(4)
-            mc1.metric("VaR (99%)",          f"₹{portfolio_metrics['VaR_99']:,.0f}")
-            mc2.metric("Expected Shortfall",  f"₹{portfolio_metrics['Expected_Shortfall']:,.0f}")
-            mc3.metric("Solvency Ratio",      f"{portfolio_metrics['Solvency_Ratio']:.1f}%")
-            mc4.metric("Model AUC",           f"{portfolio_metrics['AUC']:.2f}")
+            mc1.metric("VaR (99%)",         f"₹{portfolio_metrics['VaR_99']:,.0f}")
+            mc2.metric("Expected Shortfall", f"₹{portfolio_metrics['Expected_Shortfall']:,.0f}")
+            mc3.metric("Solvency Ratio",     f"{portfolio_metrics['Solvency_Ratio']:.1f}%")
+            mc4.metric("Model AUC",          f"{portfolio_metrics['AUC']:.2f}")
 
-            st.write("Model Governance & Validation Table:")
-            gov_cols     = ['Policy_ID', 'Expected_Claim_Amount_ML', 'AUC', 'KS Statistic',
-                            'Brier Score', 'PSI', 'Model Governance & Validation Standards']
+            gov_cols     = ["Policy_ID", "Expected_Claim_Amount_ML", "AUC", "KS Statistic",
+                            "Brier Score", "PSI", "Model Governance & Validation Standards"]
             display_cols = [c for c in gov_cols if c in df_risk.columns]
             st.dataframe(df_risk[display_cols].head(50))
+
+        # ── Tab 4: Forecasting ────────────────────────────────────────────────
+        with tab4:
+            fk = forecast_results["kpis"]
+            st.subheader(f"📊 Time Series Forecast — Next {forecast_periods} Months")
+            st.caption("Derived from the pricing data produced by Agent 2. "
+                       "Forecasts use Prophet where available, linear trend otherwise.")
+
+            if fk:
+                fc1, fc2, fc3, fc4 = st.columns(4)
+                fc1.metric("Avg Monthly Premium", f"₹{fk.get('Avg_Monthly_Premium', 0):,.0f}")
+                fc2.metric("Avg Monthly Claims",  f"₹{fk.get('Avg_Monthly_Claims',  0):,.0f}")
+                fc3.metric("Next Month Claims Fc",  f"₹{fk.get('Next_Month_Claims_Fc', 0):,.0f}")
+                fc4.metric("Next Month Premium Fc", f"₹{fk.get('Next_Month_Premium_Fc', 0):,.0f}")
+
+                yoy = forecast_results["yoy_df"]
+                if not yoy.empty:
+                    st.markdown("#### Year-over-Year Growth (Latest Period)")
+                    y1, y2 = st.columns(2)
+                    latest = yoy.iloc[-1]
+                    y1.metric("Premium YoY", f"{latest.get('Premium_YoY', 0):.1f}%",
+                              delta=f"{latest.get('Premium_YoY', 0):.1f}pp")
+                    y2.metric("Claims YoY",  f"{latest.get('Claims_YoY', 0):.1f}%",
+                              delta=f"{latest.get('Claims_YoY', 0):.1f}pp",
+                              delta_color="inverse")
+
+            # Claims forecast chart
+            st.markdown("#### Claims Forecast")
+            fc_df = forecast_results["claims_forecast"]
+            monthly = forecast_results["monthly_df"]
+            if not fc_df.empty and not monthly.empty:
+                last_hist = pd.to_datetime(monthly["Month"].max())
+                hist_fc   = fc_df[pd.to_datetime(fc_df["ds"]) <= last_hist]
+                fut_fc    = fc_df[pd.to_datetime(fc_df["ds"]) >  last_hist]
+
+                chart_data = pd.DataFrame({
+                    "Actual Claims":    monthly.set_index("Month")["Claim_Amount"],
+                }).join(
+                    pd.DataFrame({
+                        "Forecast":     fut_fc.set_index("ds")["yhat"],
+                        "Upper Bound":  fut_fc.set_index("ds")["yhat_upper"],
+                        "Lower Bound":  fut_fc.set_index("ds")["yhat_lower"],
+                    }),
+                    how="outer",
+                )
+                st.line_chart(chart_data)
+
+            # Premium forecast chart
+            st.markdown("#### Premium Forecast")
+            pfc_df = forecast_results["premium_forecast"]
+            if not pfc_df.empty and not monthly.empty:
+                fut_pfc = pfc_df[pd.to_datetime(pfc_df["ds"]) > last_hist]
+                pchart  = pd.DataFrame({
+                    "Actual Premium":  monthly.set_index("Month")["Written_Premium"],
+                }).join(
+                    pd.DataFrame({"Forecast": fut_pfc.set_index("ds")["yhat"]}),
+                    how="outer",
+                )
+                st.line_chart(pchart)
+
+            # Seasonal index
+            sea = forecast_results["seasonal_df"]
+            if not sea.empty:
+                st.markdown("#### Seasonal Index (100 = annual average)")
+                sea_chart = sea.set_index("Month_Name")[["Avg_Claims_Index", "Avg_Premium_Index"]]
+                st.bar_chart(sea_chart)
+
+            # Claim frequency & severity
+            freq = forecast_results["freq_df"]
+            sev  = forecast_results["sev_df"]
+            if not freq.empty and not sev.empty:
+                st.markdown("#### Claim Frequency & Severity")
+                fs1, fs2 = st.columns(2)
+                with fs1:
+                    st.caption("Claim Frequency (%)")
+                    st.line_chart(freq.set_index("Month")["Claim_Frequency"])
+                with fs2:
+                    st.caption("Claim Severity (avg cost per claim)")
+                    st.line_chart(sev.set_index("Month")["Claim_Severity"])
+
+            # Product breakdown
+            prod_df = forecast_results["product_df"]
+            if not prod_df.empty:
+                st.markdown("#### Product-Level Breakdown")
+                st.dataframe(prod_df.style.format({
+                    "Total_Premium": "₹{:,.0f}",
+                    "Total_Claims":  "₹{:,.0f}",
+                    "Loss_Ratio":    "{:.1f}%",
+                }), use_container_width=True, hide_index=True)
+
+            # Monthly aggregation table
+            st.markdown("#### Monthly Aggregation")
+            st.dataframe(forecast_results["monthly_df"], use_container_width=True, hide_index=True)
 
         # ── Tab 5: Stress Testing ─────────────────────────────────────────────
         with tab5:
@@ -216,9 +335,8 @@ if uploaded_file is not None:
             skp = stress_results["kpis"]
 
             st.subheader(f"⚡ {stress_results['scenario_label']}")
-            st.caption("Results derived from the cleaned & enriched portfolio produced by Agents 1–3.")
+            st.caption("Results derived from the cleaned & enriched portfolio from Agents 1–3.")
 
-            # Scenario metrics
             st.markdown("#### Stressed Financial Metrics")
             sm1, sm2, sm3, sm4 = st.columns(4)
             sm1.metric("Stressed Claims",
@@ -235,8 +353,8 @@ if uploaded_file is not None:
                        delta_color="inverse")
             sm4.metric("Underwriting P&L",
                        f"₹{sr['stressed_uw']:,.0f}",
-                       delta="Loss" if sr['stressed_uw'] < 0 else "Profit",
-                       delta_color="inverse" if sr['stressed_uw'] < 0 else "normal")
+                       delta="Loss" if sr["stressed_uw"] < 0 else "Profit",
+                       delta_color="inverse" if sr["stressed_uw"] < 0 else "normal")
 
             st.markdown("#### Capital Impact")
             cm1, cm2, cm3, cm4 = st.columns(4)
@@ -244,20 +362,17 @@ if uploaded_file is not None:
             cm2.metric("Remaining Capital", f"₹{sr['remaining_capital']:,.0f}")
             cm3.metric("Solvency Ratio",    f"{sr['solvency_ratio']:.1f}%")
             cm4.metric("Capital Shortfall",
-                       f"₹{sr['shortfall']:,.0f}" if sr['shortfall'] > 0 else "None")
+                       f"₹{sr['shortfall']:,.0f}" if sr["shortfall"] > 0 else "None")
 
-            # Alert
             if not stress_results["is_solvent"]:
-                st.error(f"⚠️ Capital shortfall of ₹{sr['shortfall']:,.0f} detected under "
+                st.error(f"⚠️ Capital shortfall of ₹{sr['shortfall']:,.0f} under "
                          f"**{stress_results['scenario_label']}**. "
-                         f"Solvency ratio drops to {sr['solvency_ratio']:.1f}%. "
-                         "Immediate capital review required.")
+                         f"Solvency ratio: {sr['solvency_ratio']:.1f}%. Immediate review required.")
             else:
                 st.success(f"✅ Capital adequate under **{stress_results['scenario_label']}**. "
                            f"Solvency ratio: {sr['solvency_ratio']:.1f}%. "
                            f"Buffer: ₹{sr['remaining_capital']:,.0f}.")
 
-            # All-scenario comparison
             st.markdown("#### All Scenarios Comparison")
             all_sc = stress_results["all_scenarios"].copy()
 
@@ -271,44 +386,41 @@ if uploaded_file is not None:
                 if val < 75: return "background-color:#FFFBEB;color:#92400E;font-weight:600"
                 return "background-color:#F0FDF4;color:#166534;font-weight:600"
 
-            styled = (all_sc.style
-                      .applymap(color_cr,  subset=["Stressed CR (%)"])
-                      .applymap(color_sol, subset=["Solvency Ratio (%)"])
-                      .format({
-                          "Base CR (%)":        "{:.1f}%",
-                          "Stressed CR (%)":    "{:.1f}%",
-                          "Stressed LR (%)":    "{:.1f}%",
-                          "Capital Consumed":   "₹{:,.0f}",
-                          "Solvency Ratio (%)": "{:.1f}%",
-                          "Shortfall":          "₹{:,.0f}",
-                      }))
-            st.dataframe(styled, use_container_width=True, hide_index=True)
+            st.dataframe(
+                all_sc.style
+                .applymap(color_cr,  subset=["Stressed CR (%)"])
+                .applymap(color_sol, subset=["Solvency Ratio (%)"])
+                .format({
+                    "Base CR (%)":        "{:.1f}%",
+                    "Stressed CR (%)":    "{:.1f}%",
+                    "Stressed LR (%)":    "{:.1f}%",
+                    "Capital Consumed":   "₹{:,.0f}",
+                    "Solvency Ratio (%)": "{:.1f}%",
+                    "Shortfall":          "₹{:,.0f}",
+                }),
+                use_container_width=True, hide_index=True,
+            )
 
-            # Product vulnerability
-            st.markdown("#### Product Vulnerability Analysis")
+            st.markdown("#### Product Vulnerability")
 
             def color_vuln(val):
                 if val == "High":   return "background-color:#FEF2F2;color:#991B1B;font-weight:600"
                 if val == "Medium": return "background-color:#FFFBEB;color:#92400E;font-weight:600"
                 return "background-color:#F0FDF4;color:#166534;font-weight:600"
 
-            vuln_df = stress_results["product_vuln"]
             st.dataframe(
-                vuln_df.style
+                stress_results["product_vuln"].style
                 .applymap(color_vuln, subset=["Vulnerability"])
                 .format({
                     "Claim Exposure":      "₹{:,.0f}",
                     "Capital At Risk":     "₹{:,.0f}",
                     "Vulnerability Score": "{:.1f}",
                 }),
-                use_container_width=True,
-                hide_index=True,
+                use_container_width=True, hide_index=True,
             )
 
-            # Charts
             st.markdown("#### Scenario Comparison — Combined Ratio")
-            chart_data = all_sc.set_index("Scenario")[["Base CR (%)", "Stressed CR (%)"]].copy()
-            st.bar_chart(chart_data)
+            st.bar_chart(all_sc.set_index("Scenario")[["Base CR (%)", "Stressed CR (%)"]])
 
             st.markdown("#### Solvency Ratio by Scenario")
             st.bar_chart(all_sc.set_index("Scenario")[["Solvency Ratio (%)"]])
