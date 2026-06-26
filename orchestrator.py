@@ -94,11 +94,11 @@ with st.sidebar:
             
     st.divider()
     
-    st.header("Forecasting Settings")
+    st.header("📈 Forecasting Settings")
     forecast_periods = st.slider("Forecast horizon (months)", 3, 24, 12)
 
     st.divider()
-    st.header("Stress Testing Settings")
+    st.header("⚡ Stress Testing Settings")
     SCENARIO_LABELS = {
         "s1": "S1 — Claims +20% (Moderate)",
         "s2": "S2 — Claims +40% (Severe)",
@@ -126,14 +126,14 @@ if uploaded_file is not None:
 
     st.success(f"Dataset '{uploaded_file.name}' loaded — {len(df_raw):,} rows and {len(df_raw.columns):,} columns.")
 
-    if st.button("Run Agents", type="primary"):
+    if st.button("🚀 Run All Agents", type="primary"):
         st.session_state.agents_run = True
 
     if st.session_state.get("agents_run", False):
         st.divider()
 
         # ── Agent 1: Data Governance ──────────────────────────────────────────
-        with st.status("Agent 1: Data Governance Running...", expanded=True) as status1:
+        with st.status("🛡️ Agent 1: Data Governance Running...", expanded=True) as status1:
             st.write("Profiling dataset, detecting anomalies, imputing missing values...")
             time.sleep(0.5)
             gov_results = get_gov_results(df_raw)
@@ -141,7 +141,7 @@ if uploaded_file is not None:
             status1.update(label=f"Data Governance complete — {len(df_clean):,} clean rows.", state="complete", expanded=False)
 
         # ── Agent 2: Pricing & Profitability ──────────────────────────────────
-        with st.status("Agent 2: Pricing & Profitability Running...", expanded=True) as status2:
+        with st.status("📈 Agent 2: Pricing & Profitability Running...", expanded=True) as status2:
             st.write("Calculating Loss Ratios, Expense Ratios, Underwriting Profit...")
             time.sleep(0.5)
             pricing_results = get_pricing_results(df_clean)
@@ -150,7 +150,7 @@ if uploaded_file is not None:
             status2.update(label="Pricing Analysis complete!", state="complete", expanded=False)
 
         # ── Agent 3: Risk Intelligence & ML ──────────────────────────────────
-        with st.status("Agent 3: Risk Intelligence & ML Running...", expanded=True) as status3:
+        with st.status("🛡️ Agent 3: Risk Intelligence & ML Running...", expanded=True) as status3:
             st.write("Calculating Risk Scores, Training XGBoost, running Monte Carlo...")
             time.sleep(0.5)
             risk_results       = get_risk_results(df_pricing)
@@ -184,7 +184,7 @@ if uploaded_file is not None:
             status3.update(label="Risk Intelligence & ML complete!", state="complete", expanded=False)
 
         # ── Agent 4: Forecasting ──────────────────────────────────────────────
-        with st.status(f"Agent 4: Time Series Forecasting Running... (Horizon: {forecast_periods}M)", expanded=True) as status4:
+        with st.status(f"📊 Agent 4: Time Series Forecasting Running... (Horizon: {forecast_periods}M)", expanded=True) as status4:
             st.write("Forecasting claims & premiums...")
             time.sleep(0.5)
             forecast_results = get_forecast_results(df_pricing, forecast_periods)
@@ -196,7 +196,7 @@ if uploaded_file is not None:
             status4.update(label=msg, state="complete", expanded=False)
 
         # ── Agent 5: Stress Testing ───────────────────────────────────────────
-        with st.status(f"Agent 5: Stress Testing Running... ({SCENARIO_LABELS[selected_scenario]})", expanded=True) as status5:
+        with st.status(f"⚡ Agent 5: Stress Testing Running... ({SCENARIO_LABELS[selected_scenario]})", expanded=True) as status5:
             st.write("Running scenario simulations...")
             time.sleep(0.5)
             stress_results = get_stress_results(df_risk, selected_scenario)
@@ -290,7 +290,7 @@ if uploaded_file is not None:
             "🔮 Risk Intelligence & ML",
             "📊 Time Series Forecast",
             "⚡ Stress Testing",
-            "📋 Actuarial Report"
+            "📋 Actuarial Report",
         ])
 
         # ── Tab 1: Data Governance ────────────────────────────────────────────
@@ -324,23 +324,23 @@ if uploaded_file is not None:
                          .reset_index(name="Count"), use_container_width=True)
 
             if "Product_Type" in df_pricing.columns:
-                st.subheader("Loss Ratio by Product")
+                st.subheader("📊 Loss Ratio by Product")
                 lr_df = df_pricing.groupby("Product_Type")["Loss_Ratio"].mean().reset_index()
                 st.plotly_chart(px.bar(lr_df, x='Product_Type', y='Loss_Ratio', color_discrete_sequence=['#0f4c81']), use_container_width=True)
                 
-                st.subheader("Profit by Product")
+                st.subheader("💰 Profit by Product")
                 prof_df = df_pricing.groupby("Product_Type")["Underwriting_Profit"].sum().reset_index()
                 st.plotly_chart(px.bar(prof_df, x='Product_Type', y='Underwriting_Profit', color_discrete_sequence=['#0f4c81']), use_container_width=True)
 
-            st.subheader("AI Pricing Insights")
+            st.subheader("🤖 AI Pricing Insights")
             for _, row in df_pricing.groupby("Product_Type")["Combined_Ratio"].mean().reset_index().iterrows():
                 product, ratio = row["Product_Type"], row["Combined_Ratio"]
                 if ratio > 1:
-                    st.error(f"**{product}**: Combined Ratio {ratio:.2f} → Underpriced. Immediate rate action required.")
+                    st.error(f"🔴 **{product}**: Combined Ratio {ratio:.2f} → Underpriced. Immediate rate action required.")
                 elif ratio < 0.80:
-                    st.success(f"**{product}**: Combined Ratio {ratio:.2f} → Highly Profitable.")
+                    st.success(f"🟢 **{product}**: Combined Ratio {ratio:.2f} → Highly Profitable.")
                 else:
-                    st.warning(f"**{product}**: Combined Ratio {ratio:.2f} → Monitor Pricing.")
+                    st.warning(f"🟡 **{product}**: Combined Ratio {ratio:.2f} → Monitor Pricing.")
 
             st.subheader("Pricing Dataset Preview")
             csv = df_pricing.to_csv(index=False).encode('utf-8')
@@ -349,7 +349,7 @@ if uploaded_file is not None:
 
         # ── Tab 3: Risk Intelligence ──────────────────────────────────────────
         with tab3:
-            st.subheader("Composite Risk Scores (Actuarial)")
+            st.subheader("⚠️ Composite Risk Scores (Actuarial)")
             rc1, rc2, rc3, rc4, rc5 = st.columns(5)
             rc1.metric("Avg Insurance Risk",   f"{df_risk['Insurance_Risk'].mean():.1f}/10")
             rc2.metric("Avg Market Risk",      f"{df_risk['Market_Risk'].mean():.1f}/10")
@@ -357,10 +357,10 @@ if uploaded_file is not None:
             rc4.metric("Avg Operational Risk", f"{df_risk['Operational_Risk'].mean():.1f}/10")
             rc5.metric("Avg CAT Risk",         f"{df_risk['Hazard_Score'].mean():.1f}/10")
 
-            st.subheader("XGBoost Feature Importance")
+            st.subheader("🔮 XGBoost Feature Importance")
             st.plotly_chart(px.bar(feature_importance, x='Importance', y='Feature', orientation='h', color_discrete_sequence=['#0f4c81']), use_container_width=True)
 
-            st.subheader("Capital Adequacy & Monte Carlo (VaR)")
+            st.subheader("🏛️ Capital Adequacy & Monte Carlo (VaR)")
             mc1, mc2, mc3, mc4 = st.columns(4)
             mc1.metric("VaR (99%)",         f"₹{portfolio_metrics['VaR_99']:,.0f}")
             mc2.metric("Expected Shortfall", f"₹{portfolio_metrics['Expected_Shortfall']:,.0f}")
@@ -377,7 +377,7 @@ if uploaded_file is not None:
         # ── Tab 4: Forecasting ────────────────────────────────────────────────
         with tab4:
             fk = forecast_results["kpis"]
-            st.subheader(f"Time Series Forecast — Next {forecast_periods} Months")
+            st.subheader(f"📊 Time Series Forecast — Next {forecast_periods} Months")
             st.caption("Derived from the pricing data produced by Agent 2. "
                        "Forecasts use Prophet where available, linear trend otherwise.")
 
@@ -623,16 +623,121 @@ if uploaded_file is not None:
             st.write(report_results["executive_summary"])
 
             st.subheader("Key Findings")
+            _bad_words = ("shortfall", "loss-making", "critical", "below", "failed", "pressure")
             for finding in report_results["key_findings"]:
-                st.success(finding)
+                if any(w in finding.lower() for w in _bad_words):
+                    st.error(finding)
+                else:
+                    st.success(finding)
 
-            if report_results.get("business_insights"):
-                from agents.report_agent import _format_bi_bullets
-                bi_bullets = _format_bi_bullets(report_results["business_insights"])
-                if bi_bullets:
-                    st.subheader("Business Insights")
-                    for b in bi_bullets:
-                        st.info(b)
+            st.divider()
+
+            # ── Business Insights ──────────────────────────────────────────
+            st.subheader("💡 Business Insights")
+            bi = report_results.get("business_insights", {})
+
+            # Rate adequacy table
+            if "rate_adequacy" in bi and bi["rate_adequacy"]:
+                with st.expander("📊 Rate Adequacy by Product", expanded=True):
+                    ra_df = pd.DataFrame(bi["rate_adequacy"])
+                    def _color_action(val):
+                        if "Immediate" in str(val):   return "background-color:#FEE2E2;color:#991B1B;font-weight:600"
+                        if "recommended" in str(val): return "background-color:#FEF3C7;color:#92400E;font-weight:600"
+                        if "adequate" in str(val):    return "background-color:#D1FAE5;color:#166534;font-weight:600"
+                        return "background-color:#EFF6FF;color:#1E40AF;font-weight:600"
+                    def _color_chg(val):
+                        try:
+                            v = float(val)
+                            if v > 10:  return "color:#991B1B;font-weight:600"
+                            if v > 0:   return "color:#92400E;font-weight:600"
+                            return "color:#166534;font-weight:600"
+                        except: return ""
+                    st.dataframe(
+                        ra_df.style
+                        .map(_color_action, subset=["Action"])
+                        .map(_color_chg,    subset=["Rate Change Needed (%)"])
+                        .format({"Current CR (%)": "{:.1f}%", "Rate Change Needed (%)": "{:+.1f}%"}),
+                        use_container_width=True, hide_index=True
+                    )
+
+            # Profitability concentration
+            pc = bi.get("profitability_concentration", {})
+            if pc:
+                with st.expander("📈 Profitability Concentration", expanded=True):
+                    pc1, pc2, pc3 = st.columns(3)
+                    pc1.metric("Policies generating 80% of profit",
+                               f"Top {pc['top_policies_pct']}%")
+                    pc2.metric("Loss-making policies",
+                               f"{pc['loss_making_count']} ({pc['loss_making_pct']}%)")
+                    pc3.metric("Profit drag from loss-making",
+                               f"₹{abs(pc['loss_making_drag']):,.0f}")
+                    if pc["loss_making_count"] > 0:
+                        st.info(
+                            f"Removing the {pc['loss_making_count']} loss-making policies "
+                            f"would increase portfolio profit to ₹{pc['profit_ex_losers']:,.0f}."
+                        )
+
+            # Cross-subsidisation
+            cs = bi.get("cross_subsidization", {})
+            if cs.get("is_cross_subsidizing"):
+                with st.expander("🔄 Cross-Subsidisation", expanded=True):
+                    losers  = cs["loss_making_products"]
+                    winners = cs["profitable_products"]
+                    csc1, csc2 = st.columns(2)
+                    with csc1:
+                        st.markdown("**Profitable products (subsidising)**")
+                        for prod, val in winners.items():
+                            st.success(f"{prod}: ₹{val:,.0f}")
+                    with csc2:
+                        st.markdown("**Loss-making products (subsidised)**")
+                        for prod, val in losers.items():
+                            st.error(f"{prod}: ₹{val:,.0f}")
+
+            # Frequency vs severity
+            fs = bi.get("frequency_severity", {})
+            if fs:
+                with st.expander("🔬 Frequency vs Severity Analysis"):
+                    fs1, fs2, fs3 = st.columns(3)
+                    fs1.metric("Primary Claims Driver", fs["primary_driver"])
+                    fs2.metric("Avg Claim Frequency",   f"{fs['avg_frequency']:.1%}")
+                    fs3.metric("Avg Claim Severity",    f"₹{fs['avg_severity']:,.0f}")
+                    st.caption(
+                        f"Frequency trend: **{fs['freq_trend']}** | "
+                        f"Severity trend: **{fs['sev_trend']}**"
+                    )
+
+            # Pricing gap
+            pg = bi.get("pricing_gap", {})
+            if pg:
+                with st.expander("📉 Pricing Gap Analysis"):
+                    pg1, pg2, pg3 = st.columns(3)
+                    pg1.metric("Avg Premium Growth",  f"{pg['avg_premium_growth_pct']:.1f}%")
+                    pg2.metric("Avg Claims Growth",   f"{pg['avg_claims_growth_pct']:.1f}%",
+                               delta=f"{pg['gap_pp']:+.1f}pp gap", delta_color="inverse")
+                    pg3.metric("Gap Widening?", "Yes ⚠️" if pg["widening"] else "No ✅")
+                    if pg["widening"]:
+                        st.warning(
+                            f"Claims are growing {pg['gap_pp']:.1f}pp faster than premium. "
+                            "Proactive rate action is required to prevent margin erosion."
+                        )
+                    else:
+                        st.success("Premium growth is outpacing claims growth. Pricing is healthy.")
+
+            # Expense efficiency
+            ee = bi.get("expense_efficiency", {})
+            if ee:
+                with st.expander("💰 Expense Efficiency by Product"):
+                    ee_df = pd.DataFrame(
+                        list(ee["by_product"].items()),
+                        columns=["Product", "Expense Ratio (%)"]
+                    )
+                    st.dataframe(ee_df, use_container_width=True, hide_index=True)
+                    st.caption(
+                        f"Portfolio avg: **{ee['portfolio_avg']:.1f}%** | "
+                        f"Most efficient: **{ee['most_efficient']}** | "
+                        f"Least efficient: **{ee['least_efficient']}**"
+                    )
+
             st.divider()
 
             # ── Report Metadata ───────────────────────────────────────────────
@@ -983,6 +1088,9 @@ if uploaded_file is not None:
                 st.warning("PDF generation failed — check logs for details.")
 
             st.markdown("---")
+
+            st.markdown("---")
+
             st.caption(
                 "This report has been generated automatically by the CRIP AI Actuarial "
                 "Reporting Engine. Results are intended for analytical decision support "
