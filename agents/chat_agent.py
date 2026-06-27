@@ -147,27 +147,103 @@ def build_chat_context(report_results: dict) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# SIDEBAR — Gemini API key input
+# ─────────────────────────────────────────────────────────────────────────────
+
+def render_api_key_sidebar():
+    """
+    Renders a collapsible API key section in the sidebar.
+    Call this once at the top of any page that uses the chatbot.
+
+    Priority order for the key:
+      1. Already validated key stored in st.session_state (user typed it this session)
+      2. GEMINI_API_KEY environment variable (set in .env / deployment secrets)
+
+    When the user saves a new key, the cached model is cleared automatically
+    so it is rebuilt with the new credentials on the next chat message.
+    """
+    with st.sidebar:
+        st.markdown("---")
+        with st.expander("🔑 Gemini API Key", expanded="gemini_api_key" not in st.session_state):
+
+            # Show current status
+            env_key  = os.getenv("GEMINI_API_KEY", "")
+            sess_key = st.session_state.get("gemini_api_key", "")
+            active   = sess_key or env_key
+
+            if active:
+                # Mask everything except the last 4 chars
+                masked = "•" * (len(active) - 4) + active[-4:]
+                st.success(f"✅ Key active: `{masked}`")
+            else:
+                st.warning("⚠️ No API key — chatbot is in demo mode.")
+
+            # Input box (password field so the key is hidden while typing)
+            new_key = st.text_input(
+                "Enter your Gemini API key",
+                type="password",
+                placeholder="AIza…",
+                help="Get a free key at https://aistudio.google.com/app/apikey",
+                key="_gemini_key_input",
+            )
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                if st.button("Save Key", use_container_width=True):
+                    if new_key.strip():
+                        st.session_state["gemini_api_key"] = new_key.strip()
+                        # Clear cached model so it rebuilds with the new key
+                        _get_gemini_model.clear()
+                        st.success("Key saved!")
+                        st.rerun()
+                    else:
+                        st.error("Please enter a key first.")
+
+            with col2:
+                if st.button("Clear Key", use_container_width=True):
+                    st.session_state.pop("gemini_api_key", None)
+                    _get_gemini_model.clear()
+                    st.info("Key cleared.")
+                    st.rerun()
+
+            st.caption(
+                "Your key is stored only in this browser session and is never saved to disk."
+            )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # GEMINI MODEL — cached so it is only created ONCE per session, never on rerun
 # ─────────────────────────────────────────────────────────────────────────────
 
 @st.cache_resource
-def _get_gemini_model():
+def _get_gemini_model(api_key: str = ""):
     """
-    Load and return the Gemini model exactly once.
-    @st.cache_resource keeps the object alive across reruns so Streamlit
-    never re-initialises it when the user sends a chat message.
-    Returns None if no API key is configured.
+    Load and return the Gemini model exactly once per unique api_key value.
+    @st.cache_resource keys the cache on the api_key argument, so swapping
+    keys produces a fresh model without restarting the server.
+    Returns None if no key is provided.
     """
-    gemini_key = os.getenv("GEMINI_API_KEY", "")
-    if not gemini_key:
+    if not api_key:
         return None
     try:
         import google.generativeai as genai
-        genai.configure(api_key=gemini_key)
+        genai.configure(api_key=api_key)
         return genai.GenerativeModel("gemini-2.5-flash")
     except Exception as e:
         st.warning(f"⚠️ Could not initialise Gemini: {e}")
         return None
+
+
+def _resolve_api_key() -> str:
+    """
+    Return the best available Gemini API key.
+    Session state (user-entered) takes priority over the environment variable.
+    """
+    return (
+        st.session_state.get("gemini_api_key", "")
+        or os.getenv("GEMINI_API_KEY", "")
+    )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -226,8 +302,8 @@ GUIDELINES:
 
 User question: {prompt}"""
 
-    # ── Use the cached model ──────────────────────────────────────────────────
-    model = _get_gemini_model()
+    # ── Use the cached model (key resolved from session state or env var) ────
+    model = _get_gemini_model(api_key=_resolve_api_key())
     if model:
         try:
             response = model.generate_content(full_prompt)
@@ -235,14 +311,11 @@ User question: {prompt}"""
         except Exception as e:
             return f"❌ Gemini error: {str(e)}"
 
-    # ── Mock fallback (no API key set) ────────────────────────────────────────
+    # ── Friendly fallback when no key is available ────────────────────────────
     return (
-        "**[No API key found]**\n\n"
-        f"You asked: *\"{prompt}\"*\n\n"
-        "To enable real AI answers:\n"
-        "1. Get a **free** Gemini API key from https://aistudio.google.com/app/apikey\n"
-        "2. Add `GEMINI_API_KEY=your-key-here` to your `.env` file\n"
-        "3. Restart the Streamlit app\n\n"
-        "**Current report data available:**\n"
-        + "\n".join(f"- **{k}**: {v}" for k, v in context.items())
+        "🔑 **No Gemini API key found.**\n\n"
+        "Enter your key in the **sidebar → 🔑 Gemini API Key** section to activate "
+        "the CRO Assistant. You can get a free key at "
+        "[aistudio.google.com](https://aistudio.google.com/app/apikey).\n\n"
+        "_Your question was:_ " + f'*"{prompt}"*'
     )

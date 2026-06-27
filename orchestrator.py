@@ -14,28 +14,11 @@ from agents.risk_intelligence import run_risk_pipeline
 from agents.forecasting       import run_forecasting_pipeline   # ← Agent 4
 from agents.stress_testing    import run_stress_pipeline        # ← Agent 5
 from agents.report_agent import (run_report_pipeline,create_report_dataframe) # <- Agent 6
-from agents.chat_agent import init_chat_history, get_chat_history, append_chat_message, generate_chat_response, build_chat_context
-
-# At the top of the page — runs every rerun but only creates the list once
-init_chat_history()
-
-# Display existing messages
-for msg in get_chat_history():
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
-
-# Handle new input
-if user_input := st.chat_input("Ask about solvency, risks, findings…"):
-    append_chat_message("user", user_input)
-    with st.chat_message("user"):
-        st.markdown(user_input)
-
-    context = build_chat_context(st.session_state.report_results)
-    reply = generate_chat_response(user_input, context)
-
-    append_chat_message("assistant", reply)
-    with st.chat_message("assistant"):
-        st.markdown(reply)
+from agents.chat_agent import (
+    generate_chat_response, build_chat_context,
+    render_api_key_sidebar, init_chat_history,
+    get_chat_history, append_chat_message,
+)
 
 st.set_page_config(
     page_title="CRIP Unified Orchestrator",
@@ -153,6 +136,8 @@ with st.sidebar:
         index=3,
     )
 
+    render_api_key_sidebar()
+
 # ── File upload ───────────────────────────────────────────────────────────────
 uploaded_file = st.file_uploader(
     "Upload Raw Dataset (.csv or .xlsx)", type=["csv", "xlsx", "xls"]
@@ -261,7 +246,7 @@ if uploaded_file is not None:
             )
             # Store in session_state so the chat tab can access it anytime
             st.session_state["report_results"] = report_results
-            st.session_state["chat_history"]   = []   # reset chat on new run
+            st.session_state["crip_chat_messages"] = []   # reset chat on new run
             time.sleep(0.5)
             status6.update(label="Actuarial Valuation Report Generated!", state="complete", expanded=False)
 
@@ -279,50 +264,53 @@ if uploaded_file is not None:
         st.divider()
 
         # ── Sidebar chat — rendered HERE so session_state is already populated ──
-        with st.sidebar:
-            st.divider()
-            st.markdown("### 🤖 Chief Risk Officer Assistant")
-            st.caption("Ask me anything about the generated risk reports.")
+        if "report_results" in st.session_state:
+            with st.sidebar:
+                st.divider()
+                st.markdown("### 🤖 Chief Risk Officer Assistant")
+                st.caption("Ask me anything about the generated risk reports.")
 
-            if "sb_chat_history" not in st.session_state:
-                st.session_state["sb_chat_history"] = []
+                init_chat_history()
+                
+                _sb_ctx = build_chat_context(report_results)
 
-            _sb_ctx = build_chat_context(report_results)
+                _sb_quick = [
+                    "What is our overall Capital Adequacy?",
+                    "Which product is most profitable?",
+                    "Summarise all open findings.",
+                    "What is the forecast for next month?",]
 
-            # Quick-question buttons
-            _sb_quick = [
-                "What is our overall Capital Adequacy?",
-                "Which product is most profitable?",
-                "Summarise all open findings.",
-                "What is the forecast for next month?",
-            ]
-            for _sq in _sb_quick:
-                if st.button(_sq, key=f"sb_quick_{_sq[:20]}", use_container_width=True):
-                    st.session_state["sb_chat_history"].append({"role": "user", "content": _sq})
+                for _sq in _sb_quick:
+                    if st.button(_sq, key=f"sb_quick_{_sq[:20]}", use_container_width=True):
+                        append_chat_message("user", _sq)
+                        with st.spinner("Thinking…"):
+                            _sb_reply = generate_chat_response(_sq, _sb_ctx)
+                        append_chat_message("assistant", _sb_reply)
+                        st.rerun()
+
+                for _sb_msg in get_chat_history():
+                        if _sb_msg["role"] == "user":
+                            st.markdown(f"**🧑 You:** {_sb_msg['content']}")
+                        else:
+                            st.info(_sb_msg["content"])
+                            
+                st.divider()
+                        
+                _sb_input = st.text_input("💬 Ask a question",
+                                            placeholder="Ask about solvency, risks…",
+                                            key="sb_chat_input",
+                                            label_visibility="collapsed")
+                if st.button("Send ➤", key="sb_send", use_container_width=True) and _sb_input.strip():
+                    append_chat_message("user", _sb_input)
                     with st.spinner("Thinking…"):
-                        _sb_reply = generate_chat_response(_sq, _sb_ctx)
-                    st.session_state["sb_chat_history"].append({"role": "assistant", "content": _sb_reply})
+                        _sb_reply = generate_chat_response(_sb_input, _sb_ctx)
+                    append_chat_message("assistant", _sb_reply)
                     st.rerun()
 
-            # Conversation history
-            for _sb_msg in st.session_state["sb_chat_history"]:
-                with st.chat_message(_sb_msg["role"]):
-                    st.markdown(_sb_msg["content"])
-
-            # Free-text input
-            _sb_input = st.chat_input("Ask about solvency, risks, findings…", key="sb_chat_input")
-            if _sb_input:
-                st.session_state["sb_chat_history"].append({"role": "user", "content": _sb_input})
-                with st.spinner("Thinking…"):
-                    _sb_reply = generate_chat_response(_sb_input, _sb_ctx)
-                st.session_state["sb_chat_history"].append({"role": "assistant", "content": _sb_reply})
-                st.rerun()
-
-            # Clear button
-            if st.session_state.get("sb_chat_history"):
-                if st.button("🗑️ Clear chat", key="sb_clear", use_container_width=True):
-                    st.session_state["sb_chat_history"] = []
-                    st.rerun()
+                if get_chat_history():
+                    if st.button("🗑️ Clear chat", key="sb_clear", use_container_width=True):
+                        st.session_state["crip_chat_messages"] = []
+                        st.rerun()
         
         # ── Results tabs ──────────────────────────────────────────────────────
         st.header("📊 Final Agent Reports")
